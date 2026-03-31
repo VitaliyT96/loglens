@@ -1,0 +1,42 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "loglens",
+      "devDependencies": {
+        "typescript": "^5.8.0",
+      },
+    },
+    "packages/cli": {
+      "name": "@loglens/cli",
+      "version": "0.0.0",
+      "bin": {
+        "loglens": "./src/index.ts",
+      },
+    },
+    "packages/core": {
+      "name": "@loglens/core",
+      "version": "0.0.0",
+    },
+    "packages/parsers": {
+      "name": "@loglens/parsers",
+      "version": "0.0.0",
+    },
+    "packages/sdk": {
+      "name": "@loglens/sdk",
+      "version": "0.0.0",
+    },
+  },
+  "packages": {
+    "@loglens/cli": ["@loglens/cli@workspace:packages/cli"],
+
+    "@loglens/core": ["@loglens/core@workspace:packages/core"],
+
+    "@loglens/parsers": ["@loglens/parsers@workspace:packages/parsers"],
+
+    "@loglens/sdk": ["@loglens/sdk@workspace:packages/sdk"],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+  }
+}

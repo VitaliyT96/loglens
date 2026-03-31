@@ -1,0 +1,17 @@
+{
+  "name": "loglens",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/cli",
+    "packages/sdk",
+    "packages/parsers"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "bun test --recursive"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
