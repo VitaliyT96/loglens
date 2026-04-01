@@ -12,3 +12,5 @@ export type {
 } from "./types.js";
 
 export { ok, err } from "./types.js";
+
+export type { IVectorStore, VectorStoreEntry } from "./store/interface.js";
