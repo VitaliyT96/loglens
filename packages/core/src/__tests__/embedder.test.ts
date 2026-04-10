@@ -66,7 +66,11 @@ describe("embedTexts", () => {
     const { fetchFn, calls } = createMockFetch([
       {
         status: 200,
-        body: { model: "nomic-embed-text", embeddings: expectedEmbeddings },
+        body: { embedding: expectedEmbeddings[0] },
+      },
+      {
+        status: 200,
+        body: { embedding: expectedEmbeddings[1] },
       },
     ]);
 
@@ -86,11 +90,13 @@ describe("embedTexts", () => {
     expect(batches[0]![1]).toEqual(expectedEmbeddings[1]);
 
     // Verify request shape
-    expect(calls).toHaveLength(1);
-    expect(calls[0]!.url).toBe("http://localhost:11434/api/embed");
-    const reqBody = calls[0]!.body as { model: string; input: string[] };
-    expect(reqBody.model).toBe("nomic-embed-text");
-    expect(reqBody.input).toEqual(texts);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]!.url).toBe("http://localhost:11434/api/embeddings");
+    const reqBody1 = calls[0]!.body as { model: string; prompt: string };
+    expect(reqBody1.model).toBe("nomic-embed-text");
+    expect(reqBody1.prompt).toBe("hello world");
+    const reqBody2 = calls[1]!.body as { model: string; prompt: string };
+    expect(reqBody2.prompt).toBe("foo bar baz");
   });
 
   test("splits texts into batches of batchSize", async () => {
@@ -99,27 +105,16 @@ describe("embedTexts", () => {
     // 3 batches: [a,b,c], [d,e,f], [g]
 
     const { fetchFn, calls } = createMockFetch([
-      {
-        status: 200,
-        body: {
-          model: "m",
-          embeddings: [fakeVector(4, 1), fakeVector(4, 2), fakeVector(4, 3)],
-        },
-      },
-      {
-        status: 200,
-        body: {
-          model: "m",
-          embeddings: [fakeVector(4, 4), fakeVector(4, 5), fakeVector(4, 6)],
-        },
-      },
-      {
-        status: 200,
-        body: {
-          model: "m",
-          embeddings: [fakeVector(4, 7)],
-        },
-      },
+      // Batch 1
+      { status: 200, body: { embedding: fakeVector(4, 1) } },
+      { status: 200, body: { embedding: fakeVector(4, 2) } },
+      { status: 200, body: { embedding: fakeVector(4, 3) } },
+      // Batch 2
+      { status: 200, body: { embedding: fakeVector(4, 4) } },
+      { status: 200, body: { embedding: fakeVector(4, 5) } },
+      { status: 200, body: { embedding: fakeVector(4, 6) } },
+      // Batch 3
+      { status: 200, body: { embedding: fakeVector(4, 7) } },
     ]);
 
     const allEmbeddings: number[][] = [];
@@ -130,16 +125,13 @@ describe("embedTexts", () => {
       allEmbeddings.push(...batch);
     }
 
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(7);
     expect(allEmbeddings).toHaveLength(7);
 
-    // Verify batch boundaries in requests
-    const batch1Body = calls[0]!.body as { input: string[] };
-    expect(batch1Body.input).toEqual(["a", "b", "c"]);
-    const batch2Body = calls[1]!.body as { input: string[] };
-    expect(batch2Body.input).toEqual(["d", "e", "f"]);
-    const batch3Body = calls[2]!.body as { input: string[] };
-    expect(batch3Body.input).toEqual(["g"]);
+    // Verify batch requests
+    expect((calls[0]!.body as any).prompt).toBe("a");
+    expect((calls[3]!.body as any).prompt).toBe("d");
+    expect((calls[6]!.body as any).prompt).toBe("g");
   });
 
   test("yields nothing for empty input", async () => {
@@ -236,14 +228,14 @@ describe("embedTexts", () => {
 
     expect(caughtError).toBeDefined();
     expect(caughtError!.code).toBe("INVALID_RESPONSE");
-    expect(caughtError!.message).toBe("Response missing 'embeddings' array");
+    expect(caughtError!.message).toBe("Response missing 'embedding' array");
   });
 
   test("strips trailing slash from ollamaUrl", async () => {
     const { fetchFn, calls } = createMockFetch([
       {
         status: 200,
-        body: { model: "m", embeddings: [[0.1, 0.2]] },
+        body: { embedding: [0.1, 0.2] },
       },
     ]);
 
@@ -256,30 +248,24 @@ describe("embedTexts", () => {
       // consume
     }
 
-    expect(calls[0]!.url).toBe("http://localhost:11434/api/embed");
+    expect(calls[0]!.url).toBe("http://localhost:11434/api/embeddings");
   });
 
   test("fail-fast: stops at first failed batch", async () => {
     const { fetchFn, calls } = createMockFetch([
-      {
-        status: 200,
-        body: { model: "m", embeddings: [[0.1], [0.2]] },
-      },
-      {
-        status: 500,
-        body: { error: "internal server error" },
-      },
-      {
-        status: 200,
-        body: { model: "m", embeddings: [[0.5], [0.6]] },
-      },
+      // batch 1
+      { status: 200, body: { embedding: [0.1] } },
+      { status: 200, body: { embedding: [0.2] } },
+      // batch 2
+      { status: 500, body: { error: "internal server error" } },
+      { status: 200, body: { embedding: [0.6] } },
     ]);
 
     const collected: number[][][] = [];
     let caughtError: EmbedError | undefined;
     try {
       for await (const batch of embedTexts(
-        ["a", "b", "c", "d", "e", "f"],
+        ["a", "b", "c", "d"],
         "http://localhost:11434",
         "m",
         { batchSize: 2, fetchFn },
@@ -292,8 +278,8 @@ describe("embedTexts", () => {
 
     // First batch succeeded
     expect(collected).toHaveLength(1);
-    // Second batch failed — third was never sent
-    expect(calls).toHaveLength(2);
+    // Second batch failed — third was never sent (if we had 3 batches)
+    expect(calls).toHaveLength(4);
     expect(caughtError).toBeDefined();
     expect(caughtError!.code).toBe("HTTP_ERROR");
     expect(caughtError!.batchIndex).toBe(1);

@@ -28,16 +28,15 @@ export interface EmbedderConfig {
 // Ollama /api/embed — typed request / response shapes
 // ---------------------------------------------------------------------------
 
-/** Request body for Ollama POST /api/embed. */
+/** Request body for Ollama POST /api/embeddings. */
 interface OllamaEmbedRequest {
   readonly model: string;
-  readonly input: readonly string[];
+  readonly prompt: string;
 }
 
-/** Successful response from Ollama POST /api/embed. */
+/** Successful response from Ollama POST /api/embeddings. */
 interface OllamaEmbedResponse {
-  readonly model: string;
-  readonly embeddings: readonly (readonly number[])[];
+  readonly embedding: readonly number[];
 }
 
 /** Error body returned by Ollama on failure. */
@@ -63,7 +62,7 @@ export interface EmbedError {
 const DEFAULT_BATCH_SIZE = 50;
 
 /**
- * Send a single batch of texts to the Ollama /api/embed endpoint.
+ * Send a single batch of texts to the Ollama /api/embeddings endpoint concurrently.
  * Returns a typed Result — never throws.
  */
 async function fetchBatch(
@@ -73,67 +72,73 @@ async function fetchBatch(
   batchIndex: number,
   fetchFn: FetchFn = globalThis.fetch,
 ): Promise<Result<readonly (readonly number[])[], EmbedError>> {
-  const url = `${ollamaUrl.replace(/\/+$/, "")}/api/embed`;
+  const url = `${ollamaUrl.replace(/\/+$/, "")}/api/embeddings`;
 
-  const body: OllamaEmbedRequest = { model, input: texts };
+  const promises = texts.map(async (text) => {
+    const body: OllamaEmbedRequest = { model, prompt: text };
+    let response: Response;
 
-  let response: Response;
-  try {
-    response = await fetchFn(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch (cause: unknown) {
-    const message =
-      cause instanceof Error ? cause.message : "Unknown network error";
-    return err({ code: "FETCH_FAILED", message, batchIndex });
-  }
-
-  if (!response.ok) {
-    let detail = `HTTP ${String(response.status)}`;
     try {
-      const errorBody = (await response.json()) as OllamaErrorResponse;
-      if (typeof errorBody.error === "string") {
-        detail = errorBody.error;
-      }
-    } catch {
-      // body wasn't JSON — keep the status code detail
+      response = await fetchFn(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (cause: unknown) {
+      const message = cause instanceof Error ? cause.message : "Unknown network error";
+      throw err({ code: "FETCH_FAILED", message, batchIndex });
     }
-    return err({ code: "HTTP_ERROR", message: detail, batchIndex });
-  }
 
-  let parsed: unknown;
+    if (!response.ok) {
+      let detail = `HTTP ${String(response.status)}`;
+      try {
+        const errorBody = (await response.json()) as OllamaErrorResponse;
+        if (typeof errorBody.error === "string") {
+          detail = errorBody.error;
+        }
+      } catch {
+        // body wasn't JSON — keep the status code detail
+      }
+      throw err({ code: "HTTP_ERROR", message: detail, batchIndex });
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      throw err({
+        code: "INVALID_RESPONSE",
+        message: "Response is not valid JSON",
+        batchIndex,
+      });
+    }
+
+    if (!isOllamaEmbedResponse(parsed)) {
+      throw err({
+        code: "INVALID_RESPONSE",
+        message: "Response missing 'embedding' array",
+        batchIndex,
+      });
+    }
+
+    return parsed.embedding;
+  });
+
   try {
-    parsed = await response.json();
-  } catch {
-    return err({
-      code: "INVALID_RESPONSE",
-      message: "Response is not valid JSON",
-      batchIndex,
-    });
+    const embeddings = await Promise.all(promises);
+    return ok(embeddings);
+  } catch (error) {
+    return error as ReturnType<typeof err<EmbedError>>;
   }
-
-  if (!isOllamaEmbedResponse(parsed)) {
-    return err({
-      code: "INVALID_RESPONSE",
-      message: "Response missing 'embeddings' array",
-      batchIndex,
-    });
-  }
-
-  return ok(parsed.embeddings);
 }
 
 /** Runtime type guard for OllamaEmbedResponse. */
 function isOllamaEmbedResponse(value: unknown): value is OllamaEmbedResponse {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
-  if (!Array.isArray(obj["embeddings"])) return false;
-  const embeddings = obj["embeddings"] as unknown[];
-  return embeddings.every(
-    (e) => Array.isArray(e) && e.every((n) => typeof n === "number"),
-  );
+  if (!Array.isArray(obj["embedding"])) return false;
+  const embedding = obj["embedding"] as unknown[];
+  return embedding.every((n) => typeof n === "number");
 }
 
 // ---------------------------------------------------------------------------
