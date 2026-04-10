@@ -23,6 +23,9 @@
     "packages/parsers": {
       "name": "@loglens/parsers",
       "version": "0.0.0",
+      "dependencies": {
+        "@loglens/core": "workspace:*",
+      },
     },
     "packages/sdk": {
       "name": "@loglens/sdk",
