@@ -16,5 +16,5 @@ export { ok, err } from "./types.js";
 export type { IVectorStore, VectorStoreEntry } from "./store/interface.js";
 export { VectorStore } from "./store.js";
 
-export type { EmbedderConfig, EmbedError, FetchFn } from "./embedder.js";
-export { embedTexts } from "./embedder.js";
+export type { LlmConfig, ChatMessage, LlmError } from "./llm/client.js";
+export { fetchEmbeddings, streamChat } from "./llm/client.js";
