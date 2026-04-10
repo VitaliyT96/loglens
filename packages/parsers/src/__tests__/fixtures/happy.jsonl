@@ -1,0 +1,6 @@
+{"id":"abc-001","timestamp":"2024-01-15T10:00:00.000Z","level":"info","message":"Server started","service":"api","port":3000}
+{"timestamp":"2024-01-15T10:00:05.123Z","level":"debug","message":"Handling request","service":"api","method":"GET","path":"/health"}
+{"time":"2024-01-15T10:00:10.456Z","level":"warn","msg":"High memory usage","service":"worker","memoryMb":450}
+{"@timestamp":"2024-01-15T10:00:15.789Z","severity":"error","message":"Database timeout","service":"db","queryMs":5001}
+{"timestamp":1705312820000,"level":"fatal","message":"Out of disk space","service":"storage"}
+{"timestamp":"2024-01-15T10:00:25.000Z","level":"info","message":"Entry with extra metadata","service":"api","traceId":"xyz-789","userId":"u-42"}

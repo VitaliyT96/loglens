@@ -1,0 +1,5 @@
+[test]
+# Exclude compiled output from test discovery.
+# All packages build into their own dist/ — running compiled JS alongside
+# the TypeScript source causes double-execution and broken fixture paths.
+exclude = ["**/dist/**"]

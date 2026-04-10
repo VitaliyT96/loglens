@@ -1,0 +1,8 @@
+{"timestamp":"2024-01-15T10:00:00.000Z","level":"info","message":"Valid line one","service":"api"}
+this is not json at all
+{"timestamp":"2024-01-15T10:00:05.000Z","level":"debug","message":"Valid line three"}
+[1, 2, 3]
+{"level":"info","message":"Missing timestamp — should warn"}
+{"timestamp":"not-a-date","level":"info","message":"Bad timestamp — should warn"}
+{"timestamp":"2024-01-15T10:00:30.000Z","level":"error"}
+{"timestamp":"2024-01-15T10:01:00.000Z","level":"info","message":"Valid last line"}
