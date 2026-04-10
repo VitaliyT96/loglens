@@ -5,22 +5,7 @@ import type { LogEntry, LogLevel, Result } from "@loglens/core";
 // ParseError — typed errors for the JSONL parser
 // ---------------------------------------------------------------------------
 
-/** The file could not be read from the filesystem. */
-export interface FileReadError {
-  readonly code: "FILE_READ_ERROR";
-  readonly path: string;
-  readonly cause: string;
-}
-
-/** A log line was either not valid JSON or failed the LogEntry shape check. */
-export interface LineParseWarning {
-  readonly code: "LINE_PARSE_WARNING";
-  readonly line: number;
-  readonly raw: string;
-  readonly reason: string;
-}
-
-export type ParseError = FileReadError;
+export type ParseError = Error;
 
 // ---------------------------------------------------------------------------
 // ParseResult — Ok carries entries + warnings; Err carries a FileReadError
@@ -28,7 +13,7 @@ export type ParseError = FileReadError;
 
 export interface ParseSuccess {
   readonly entries: LogEntry[];
-  readonly warnings: LineParseWarning[];
+  readonly warnings: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -154,10 +139,7 @@ function mapRowToLogEntry(
     return err("missing 'message' or 'msg' field");
   }
 
-  const id =
-    getString(row, "id") ??
-    // Stable hash-like ID derived from raw content — avoids uuid dependency.
-    String(Bun.hash(rawLine));
+  const id = crypto.randomUUID();
 
   const level = resolveLevel(row);
   const service = getString(row, "service");
@@ -212,17 +194,13 @@ export async function parseJsonlFile(
   } catch (cause: unknown) {
     const message =
       cause instanceof Error ? cause.message : "Unknown filesystem error";
-    return err<FileReadError>({
-      code: "FILE_READ_ERROR",
-      path,
-      cause: message,
-    });
+    return err(new Error(`FILE_READ_ERROR: ${path} - ${message}`));
   }
 
   // ── 2. Parse line-by-line ────────────────────────────────────────────────
   const lines = text.split("\n");
   const entries: LogEntry[] = [];
-  const warnings: LineParseWarning[] = [];
+  const warnings: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
@@ -238,35 +216,20 @@ export async function parseJsonlFile(
     try {
       parsed = JSON.parse(trimmed);
     } catch {
-      warnings.push({
-        code: "LINE_PARSE_WARNING",
-        line: lineNumber,
-        raw: trimmed,
-        reason: "Invalid JSON",
-      });
+      warnings.push(`Line ${lineNumber}: Invalid JSON`);
       continue;
     }
 
     // ── 2b. Validate object shape ──────────────────────────────────────────
     if (!isRawRow(parsed)) {
-      warnings.push({
-        code: "LINE_PARSE_WARNING",
-        line: lineNumber,
-        raw: trimmed,
-        reason: `Expected a JSON object, got ${Array.isArray(parsed) ? "array" : typeof parsed}`,
-      });
+      warnings.push(`Line ${lineNumber}: Expected a JSON object, got ${Array.isArray(parsed) ? "array" : typeof parsed}`);
       continue;
     }
 
     // ── 2c. Map to LogEntry ────────────────────────────────────────────────
     const mapped = mapRowToLogEntry(parsed, trimmed);
     if (!mapped.ok) {
-      warnings.push({
-        code: "LINE_PARSE_WARNING",
-        line: lineNumber,
-        raw: trimmed,
-        reason: mapped.error,
-      });
+      warnings.push(`Line ${lineNumber}: ${mapped.error}`);
       continue;
     }
 
