@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { VectorStore } from "../store.js";
+import { MemoryVectorStore } from "../store/memory.js";
 import type { LogEntry } from "../types.js";
 
-describe("VectorStore", () => {
-  const TEST_DIR = path.join(process.cwd(), "src/__tests__/__store_temp__");
+describe("MemoryVectorStore", () => {
+  const TEST_DIR = path.join(import.meta.dir, "__store_temp__");
 
   beforeEach(async () => {
     await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
@@ -36,7 +36,7 @@ describe("VectorStore", () => {
   const embed2 = [0, 1, 0];
 
   it("adds, searches, and filters logically", async () => {
-    const store = new VectorStore();
+    const store = new MemoryVectorStore();
     await store.add([entry1, entry2], [embed1, embed2]);
 
     // Search near embed1
@@ -56,11 +56,11 @@ describe("VectorStore", () => {
   });
 
   it("persists and loads successfully while reviving dates", async () => {
-    const store1 = new VectorStore();
+    const store1 = new MemoryVectorStore();
     await store1.add([entry1, entry2], [embed1, embed2]);
     await store1.save(TEST_DIR);
 
-    const store2 = new VectorStore();
+    const store2 = new MemoryVectorStore();
     await store2.load(TEST_DIR);
     
     const results = await store2.search([1, 0, 0], 1);
@@ -72,7 +72,7 @@ describe("VectorStore", () => {
   });
 
   it("clears memory correctly", async () => {
-    const store = new VectorStore();
+    const store = new MemoryVectorStore();
     await store.add([entry1], [embed1]);
     await store.clear();
     const results = await store.search([1, 0, 0], 10);
