@@ -93,10 +93,12 @@ export interface QueryOptions {
   readonly question: string;
   /** Directory where the vector index is persisted. */
   readonly storageDir: string;
-  /** Base URL of an OpenAI-compatible chat server. */
+  /** Base URL of an OpenAI-compatible server (used for both embeddings and chat). */
   readonly ollamaBaseUrl?: string; // default: "http://localhost:11434"
   /** Chat / completion model name. */
   readonly chatModel?: string; // default: "llama3.2"
+  /** Embedding model name (must match the model used during ingest). */
+  readonly embeddingModel?: string; // default: "nomic-embed-text"
   /** Number of nearest-neighbor log entries to retrieve. */
   readonly topN?: number; // default: 10
   /** If set, only query entries whose `service` matches this value. */
