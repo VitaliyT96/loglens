@@ -12,6 +12,13 @@
     }
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:binary": "bun build ./src/index.ts --compile --outfile loglens",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@loglens/core": "workspace:*",
+    "@loglens/parsers": "workspace:*",
+    "citty": "^0.1.6"
   }
 }
