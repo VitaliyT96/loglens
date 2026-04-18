@@ -1,9 +1,10 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { IVectorStore, VectorStoreEntry } from "./store/interface.js";
-import type { LogEntry } from "./types.js";
+import type { IVectorStore, VectorStoreEntry } from "./interface.js";
+import type { LogEntry } from "../types.js";
 
 function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+  
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
@@ -18,23 +19,30 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-export class VectorStore implements IVectorStore {
+export class MemoryVectorStore implements IVectorStore {
   private entries: VectorStoreEntry[] = [];
 
   async add(entries: LogEntry[], embeddings: number[][]): Promise<void> {
     if (entries.length !== embeddings.length) {
       throw new Error("Entries and embeddings length mismatch");
     }
+    
+    const existingIds = new Set(this.entries.map((e) => e.id));
+    
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       const embedding = embeddings[i];
       if (entry === undefined || embedding === undefined) {
         throw new Error("Missing entry or embedding at index");
       }
-      this.entries.push({
-        ...entry,
-        embedding,
-      });
+      
+      if (!existingIds.has(entry.id)) {
+        this.entries.push({
+          ...entry,
+          embedding,
+        });
+        existingIds.add(entry.id);
+      }
     }
   }
 
@@ -53,20 +61,28 @@ export class VectorStore implements IVectorStore {
     scored.sort((a, b) => b.score - a.score);
 
     return scored.slice(0, topN).map(({ entry }) => {
-      const { embedding, ...logEntry } = entry;
-      return logEntry as LogEntry;
+      const { embedding: _embed, ...logEntry } = entry;
+      return logEntry;
     });
   }
 
   async save(dir: string): Promise<void> {
-    await fs.mkdir(dir, { recursive: true });
+    const indexPath = path.join(dir, "index.json");
     const content = JSON.stringify(this.entries);
-    await fs.writeFile(path.join(dir, "index.json"), content, "utf-8");
+    await Bun.write(indexPath, content);
   }
 
   async load(dir: string): Promise<void> {
+    const indexPath = path.join(dir, "index.json");
+    const file = Bun.file(indexPath);
+    
+    if (!(await file.exists())) {
+      this.entries = [];
+      return;
+    }
+    
     try {
-      const content = await fs.readFile(path.join(dir, "index.json"), "utf-8");
+      const content = await file.text();
       this.entries = JSON.parse(content, (key, value) => {
         if (key === "timestamp" && typeof value === "string") {
           return new Date(value);
@@ -74,16 +90,7 @@ export class VectorStore implements IVectorStore {
         return value;
       });
     } catch (e: unknown) {
-      if (
-        typeof e === "object" &&
-        e !== null &&
-        "code" in e &&
-        (e as { code: string }).code === "ENOENT"
-      ) {
-        this.entries = [];
-      } else {
-        throw e;
-      }
+      throw e;
     }
   }
 
