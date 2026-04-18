@@ -30,3 +30,13 @@ export type {
   ParseFailure,
 } from "./ingest.js";
 export { ingest } from "./ingest.js";
+
+export type {
+  QueryError,
+  QueryEmbedError,
+  QueryStoreError,
+  QueryChatError,
+  QueryEvent,
+  QueryDeps,
+} from "./query.js";
+export { query } from "./query.js";
