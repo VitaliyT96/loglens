@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import { MemoryVectorStore } from "../store/memory.js";
 import type { LogEntry } from "../types.js";
@@ -8,11 +7,16 @@ describe("MemoryVectorStore", () => {
   const TEST_DIR = path.join(import.meta.dir, "__store_temp__");
 
   beforeEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
+    const dir = Bun.file(path.join(TEST_DIR, "index.json"));
+    if (await dir.exists()) {
+      const { rm } = await import("node:fs/promises");
+      await rm(TEST_DIR, { recursive: true, force: true });
+    }
   });
 
   afterEach(async () => {
-    await fs.rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
+    const { rm } = await import("node:fs/promises");
+    await rm(TEST_DIR, { recursive: true, force: true }).catch(() => {});
   });
 
   const entry1: LogEntry = {
@@ -42,17 +46,17 @@ describe("MemoryVectorStore", () => {
     // Search near embed1
     let results = await store.search([0.9, 0.1, 0], 10);
     expect(results).toHaveLength(2);
-    expect(results[0].id).toBe("1"); // Should be closest
+    expect(results[0]?.id).toBe("1"); // Should be closest
 
     // Search with service filter
     results = await store.search([0.9, 0.1, 0], 10, "db");
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe("2");
+    expect(results[0]?.id).toBe("2");
 
     // TopN applied
     results = await store.search([0.9, 0.1, 0], 1);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe("1");
+    expect(results[0]?.id).toBe("1");
   });
 
   it("persists and loads successfully while reviving dates", async () => {
@@ -62,13 +66,15 @@ describe("MemoryVectorStore", () => {
 
     const store2 = new MemoryVectorStore();
     await store2.load(TEST_DIR);
-    
+
     const results = await store2.search([1, 0, 0], 1);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe("1");
+    expect(results[0]?.id).toBe("1");
     // Date validation
-    expect(results[0].timestamp).toBeInstanceOf(Date);
-    expect(results[0].timestamp.toISOString()).toBe("2023-01-01T00:00:00.000Z");
+    expect(results[0]?.timestamp).toBeInstanceOf(Date);
+    expect(results[0]?.timestamp.toISOString()).toBe(
+      "2023-01-01T00:00:00.000Z",
+    );
   });
 
   it("clears memory correctly", async () => {
@@ -77,5 +83,48 @@ describe("MemoryVectorStore", () => {
     await store.clear();
     const results = await store.search([1, 0, 0], 10);
     expect(results).toHaveLength(0);
+  });
+
+  it("deduplicates entries by id", async () => {
+    const store = new MemoryVectorStore();
+    await store.add([entry1], [embed1]);
+    // Add same entry again — should be skipped
+    await store.add([entry1], [embed1]);
+
+    const results = await store.search([1, 0, 0], 10);
+    expect(results).toHaveLength(1);
+    expect(results[0]?.id).toBe("1");
+  });
+
+  it("rejects empty embedding vectors", async () => {
+    const store = new MemoryVectorStore();
+    await expect(store.add([entry1], [[]])).rejects.toThrow(
+      "Empty embedding vector",
+    );
+  });
+
+  it("returns empty results for empty query embedding", async () => {
+    const store = new MemoryVectorStore();
+    await store.add([entry1], [embed1]);
+    const results = await store.search([], 10);
+    expect(results).toHaveLength(0);
+  });
+
+  it("loads gracefully when no index exists", async () => {
+    const store = new MemoryVectorStore();
+    await store.load(TEST_DIR); // directory doesn't exist yet
+    const results = await store.search([1, 0, 0], 10);
+    expect(results).toHaveLength(0);
+  });
+
+  it("search results do not contain embedding field", async () => {
+    const store = new MemoryVectorStore();
+    await store.add([entry1], [embed1]);
+    const results = await store.search([1, 0, 0], 1);
+    expect(results).toHaveLength(1);
+    // Verify embedding is stripped — use `in` to avoid unsafe cast
+    const result = results[0];
+    expect(result).toBeDefined();
+    expect("embedding" in result!).toBe(false);
   });
 });
