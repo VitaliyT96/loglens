@@ -1,4 +1,5 @@
 import path from "node:path";
+import { mkdir } from "node:fs/promises";
 import type { IVectorStore, VectorStoreEntry } from "./interface.js";
 import type { LogEntry } from "../types.js";
 
@@ -102,6 +103,7 @@ export class MemoryVectorStore implements IVectorStore {
   }
 
   async save(dir: string): Promise<void> {
+    await mkdir(dir, { recursive: true });
     const indexPath = path.join(dir, "index.json");
     const content = JSON.stringify(this.entries);
     await Bun.write(indexPath, content);
@@ -117,12 +119,51 @@ export class MemoryVectorStore implements IVectorStore {
     }
 
     const content = await file.text();
-    this.entries = JSON.parse(content, (_key, value: unknown) => {
+    const parsed: unknown = JSON.parse(content, (_key, value: unknown) => {
       if (_key === "timestamp" && typeof value === "string") {
         return new Date(value);
       }
       return value;
-    }) as VectorStoreEntry[];
+    });
+
+    if (!Array.isArray(parsed)) {
+      this.entries = [];
+      return;
+    }
+
+    const validEntries: VectorStoreEntry[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") {
+        this.entries = [];
+        return;
+      }
+      
+      const obj = item as Record<string, unknown>;
+      const hasId = typeof obj.id === "string";
+      const hasEmbedding = Array.isArray(obj.embedding) && obj.embedding.every(n => typeof n === "number");
+      const hasTimestamp = obj.timestamp instanceof Date;
+      const hasLevel = typeof obj.level === "string";
+      const hasMessage = typeof obj.message === "string";
+      const hasRaw = typeof obj.raw === "string";
+
+      if (!hasId || !hasEmbedding || !hasTimestamp || !hasLevel || !hasMessage || !hasRaw) {
+        this.entries = [];
+        return;
+      }
+
+      validEntries.push({
+        id: obj.id as string,
+        embedding: obj.embedding as number[],
+        timestamp: obj.timestamp as Date,
+        level: obj.level as "debug" | "info" | "warn" | "error" | "fatal",
+        message: obj.message as string,
+        raw: obj.raw as string,
+        ...(typeof obj.service === "string" ? { service: obj.service } : {}),
+        ...(typeof obj.metadata === "object" && obj.metadata !== null ? { metadata: obj.metadata as Record<string, unknown> } : {})
+      });
+    }
+
+    this.entries = validEntries;
   }
 
   async clear(): Promise<void> {

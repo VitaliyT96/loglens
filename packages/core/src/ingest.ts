@@ -43,6 +43,7 @@ export interface IngestProgress {
 /** Minimal parser output contract. Mirrors ParseSuccess from @loglens/parsers. */
 export interface ParseOutput {
   readonly entries: LogEntry[];
+  readonly warnings?: readonly { line: number; reason: string }[];
 }
 
 /** Minimal parse error contract. Mirrors ParseError from @loglens/parsers. */
@@ -166,8 +167,12 @@ export async function ingest(
   // Load existing index so dedup works across runs
   try {
     await store.load(options.storageDir);
-  } catch {
-    // No existing index — start fresh (store.load handles missing files)
+  } catch (cause: unknown) {
+    const message = cause instanceof Error ? cause.message : "Unknown store error";
+    return err({
+      code: "STORE_ERROR",
+      message: `Failed to load index from ${options.storageDir}: ${message}`,
+    });
   }
 
   const countBefore = allEmbeddings.length;
@@ -190,9 +195,13 @@ export async function ingest(
 
   // ── 4. Result ───────────────────────────────────────────────────────────
   const durationMs = performance.now() - start;
+  const totalBeforeFilter = parseResult.value.entries.length;
+  const afterFilter = entries.length;
+  const skipped = (totalBeforeFilter - afterFilter) + (parseResult.value.warnings?.length ?? 0);
+
   return ok({
     ingested: countBefore,
-    skipped: parseResult.value.entries.length - entries.length,
+    skipped,
     durationMs,
   });
 }
