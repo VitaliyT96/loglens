@@ -1,0 +1,5 @@
+2024-03-12T08:15:30.123Z INFO [api-gateway] Started listening on port 8080
+2024-03-12T08:15:32.000Z DEBUG Incoming request GET /health
+2024-03-12T08:16:01.456Z WARNING [auth-service] High latency detected
+2024-03-12T08:17:15.888Z ERROR Connection to database lost
+2024-03-12T08:18:00.000Z CRIT System out of memory

@@ -4,5 +4,7 @@ export type {
   LineParseWarning,
   ParseError,
   ParseSuccess,
-} from "./jsonl.js";
+} from "./types.js";
 export { parseJsonlFile } from "./jsonl.js";
+export { parsePlaintextFile } from "./plaintext.js";
+export { autoDetectParser } from "./detect.js";
