@@ -10,5 +10,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@loglens/core": "workspace:*",
+    "@loglens/parsers": "workspace:*"
   }
 }
