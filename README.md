@@ -1,6 +1,38 @@
 # loglens
 TypeScript-first local RAG CLI/SDK for developers to chat with their logs.
 
+Imagine your service crashes at 3 AM. You open the terminal, navigate to your project folder, and type a single command:
+
+```bash
+loglens query "why did payment-service crash this morning?"
+```
+
+Within seconds, you get an answer like: *"payment-service started returning timeouts at 08:14 after the deployment of version 2.3.1. The root cause is an exhausted database connection pool, evident from 47 repeated `pool exhausted` errors between 08:14 and 08:31 in the `db-client` traces."*
+
+This is loglens. Not a dashboard. Not a cloud service. Not another SaaS for $300 a month. Just a tool in your terminal that reads your local logs and answers your questions in plain human language.
+
+### How it works
+First, you run `ingest` once. Loglens reads your log files—whether they're JSONL, Nginx format, or plain text. It turns each log line into a vector of numbers using a local embedding model in Ollama. This vector is a mathematical representation of the string's meaning. *"connection refused"* and *"cannot connect to the database"* will yield similar vectors even if they share no common words. All these vectors are saved locally to disk next to your original logs.
+
+Then, when you ask a question, Loglens turns your question into a similar vector, finds the 10 log lines in the index whose vectors are closest to your question, and passes those lines as context to a local LLM. The LLM receives a system prompt like: *"You are a Senior SRE. Here are relevant logs, find the root cause with exact timestamps."* It then streams the answer directly to your terminal.
+
+All of this happens entirely on your machine. Not a single byte of your logs ever goes to the internet.
+
+### Why this is better than what you already have
+- **grep and awk**: You have to know exactly what you're looking for. Loglens lets you not know, and just ask.
+- **Datadog, Elastic, Loki**: Require infrastructure, budget, and shipping your logs somewhere else. Loglens works with the files you already have on your disk or server.
+- **ChatGPT with copy-pasted logs**: You manually copy chunks, lose context, send potentially sensitive data to the cloud, and the model doesn't know which lines out of thousands are actually relevant.
+
+### Who is this for?
+- A **developer** who spun up microservices locally and wants to understand why one is acting up.
+- A **DevOps engineer** on a postmortem who needs to quickly reconstruct an incident timeline from raw logs.
+- A **team with zero budget** for observability tools.
+- **Anyone** who wants to interrogate their logs without leaving the terminal.
+
+### Two modes of use
+1. **CLI**: For humans. Install via npm, run two commands, get your answer.
+2. **SDK**: For tools. Install Loglens as a library and embed it into your own tool, deployment script, or CI pipeline. For example, automatically analyze logs from a failed test and add a summary directly to the pull request.
+
 ## Requirements
 - Bun >= 1.0
 - Ollama
