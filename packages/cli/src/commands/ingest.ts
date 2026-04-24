@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 import type { ArgsDef } from "citty";
 import { ingest, MemoryVectorStore } from "@loglens/core";
 import type { IngestDeps, IngestProgress } from "@loglens/core";
-import { parseJsonlFile } from "@loglens/parsers";
+import { autoDetectParser } from "@loglens/parsers";
 import {
   logSuccess,
   logInfo,
@@ -86,7 +86,7 @@ export default defineCommand({
 
     const store = new MemoryVectorStore();
     const deps: IngestDeps = {
-      parse: parseJsonlFile,
+      parse: autoDetectParser,
       store,
       onProgress: renderProgress,
     };
@@ -103,7 +103,14 @@ export default defineCommand({
     );
 
     if (!result.ok) {
-      logError(`Ingest failed: ${result.error.message}`);
+      if (
+        result.error.code === "EMBED_ERROR" &&
+        result.error.message.includes("ECONNREFUSED")
+      ) {
+        logError("Ollama is not running. Start it with: ollama serve");
+      } else {
+        logError(`Ingest failed: ${result.error.message}`);
+      }
       process.exit(1);
     }
 
