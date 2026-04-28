@@ -131,6 +131,8 @@ export async function ingest(
   const llmConfig: LlmConfig = {
     baseUrl: options.ollamaBaseUrl ?? DEFAULT_BASE_URL,
     model: options.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
+    ...(options.embeddingTimeoutMs !== undefined ? { embeddingTimeoutMs: options.embeddingTimeoutMs } : {}),
+    ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
   };
 
   const totalBatches = Math.ceil(entries.length / BATCH_SIZE);
@@ -176,7 +178,16 @@ export async function ingest(
   }
 
   const countBefore = allEmbeddings.length;
-  await store.add(entries, allEmbeddings);
+
+  try {
+    await store.add(entries, allEmbeddings);
+  } catch (cause: unknown) {
+    const message = cause instanceof Error ? cause.message : "Unknown store error";
+    return err({
+      code: "STORE_ERROR",
+      message: `Failed to add entries to index: ${message}`,
+    });
+  }
 
   onProgress?.({ phase: "saving", current: 1, total: 2 });
 

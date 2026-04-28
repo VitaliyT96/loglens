@@ -73,6 +73,10 @@ export interface IngestOptions {
   readonly embeddingModel?: string; // default: "nomic-embed-text"
   /** If set, only ingest entries whose `service` matches this value. */
   readonly serviceFilter?: string;
+  /** Timeout in milliseconds for embedding requests. Default: 30_000 */
+  readonly embeddingTimeoutMs?: number;
+  /** Maximum retry attempts for retryable errors (429, 5xx). Default: 3 */
+  readonly maxRetries?: number;
 }
 
 export interface IngestResult {
@@ -103,6 +107,12 @@ export interface QueryOptions {
   readonly topN?: number; // default: 10
   /** If set, only query entries whose `service` matches this value. */
   readonly serviceFilter?: string;
+  /** Timeout in milliseconds for embedding requests. Default: 30_000 */
+  readonly embeddingTimeoutMs?: number;
+  /** Timeout in milliseconds for chat completion requests. Default: 120_000 */
+  readonly chatTimeoutMs?: number;
+  /** Maximum retry attempts for retryable errors (429, 5xx). Default: 3 */
+  readonly maxRetries?: number;
 }
 
 export interface QueryResult {

@@ -48,6 +48,7 @@ const BASE_OPTIONS: QueryOptions = {
   ollamaBaseUrl: "http://localhost:11434",
   chatModel: "llama3.2",
   topN: 10,
+  maxRetries: 0,
 };
 
 // ---------------------------------------------------------------------------

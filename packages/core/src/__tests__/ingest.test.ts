@@ -66,6 +66,7 @@ const BASE_OPTIONS: IngestOptions = {
   storageDir: "/tmp/loglens-test-index",
   ollamaBaseUrl: "http://localhost:11434",
   embeddingModel: "nomic-embed-text",
+  maxRetries: 0,
 };
 
 // ---------------------------------------------------------------------------

@@ -105,6 +105,14 @@ export default defineCommand({
       process.exit(1);
     }
 
+    // Validate config eagerly — fail fast on bad URL
+    try {
+      new URL(baseUrl);
+    } catch {
+      logError(`Invalid --base-url: "${baseUrl}" — expected a valid URL like http://localhost:11434`);
+      process.exit(1);
+    }
+
     logInfo(`Querying: ${bold(question)}`);
 
     const store = new MemoryVectorStore();
@@ -128,7 +136,11 @@ export default defineCommand({
 
     if (!result.ok) {
       console.log(); // newline after any partial streamed output
-      logError(`Query failed: ${result.error.message}`);
+      if (result.error.message.includes("ECONNREFUSED")) {
+        logError("Ollama is not running. Start it with: ollama serve");
+      } else {
+        logError(`Query failed: ${result.error.message}`);
+      }
       process.exit(1);
     }
 

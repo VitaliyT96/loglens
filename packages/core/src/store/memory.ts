@@ -1,13 +1,19 @@
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
 import type { IVectorStore, VectorStoreEntry } from "./interface.js";
-import type { LogEntry } from "../types.js";
+import type { LogEntry, LogLevel } from "../types.js";
 
 // ---------------------------------------------------------------------------
 // cosineSimilarity — pure math, no side effects
 // ---------------------------------------------------------------------------
 
-function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
+/**
+ * Compute cosine similarity between two vectors.
+ *
+ * Exported for direct unit testing — not part of the public package API
+ * (not re-exported from index.ts).
+ */
+export function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
   if (a.length === 0 || b.length === 0) return 0;
   if (a.length !== b.length) return 0;
 
@@ -43,11 +49,25 @@ function stripEmbedding(entry: VectorStoreEntry): LogEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Serialized entry shape — used for JSON persistence
+// ---------------------------------------------------------------------------
+
+const VALID_LEVELS: ReadonlySet<string> = new Set([
+  "debug", "info", "warn", "error", "fatal", "unknown",
+]);
+
+function isValidLogLevel(value: string): value is LogLevel {
+  return VALID_LEVELS.has(value);
+}
+
+// ---------------------------------------------------------------------------
 // MemoryVectorStore — in-memory IVectorStore backed by Bun file I/O
 // ---------------------------------------------------------------------------
 
 export class MemoryVectorStore implements IVectorStore {
   private entries: VectorStoreEntry[] = [];
+  /** Tracks expected embedding dimension. Set on first add(), validated on subsequent calls. */
+  private expectedDimension: number | null = null;
 
   async add(entries: LogEntry[], embeddings: number[][]): Promise<void> {
     if (entries.length !== embeddings.length) {
@@ -63,12 +83,23 @@ export class MemoryVectorStore implements IVectorStore {
         throw new Error(`Missing entry or embedding at index ${String(i)}`);
       }
 
-      // M2: guard against zero-length embeddings
+      // Guard against zero-length embeddings
       if (embedding.length === 0) {
         throw new Error(`Empty embedding vector at index ${String(i)}`);
       }
 
-      // I3: skip duplicates by id
+      // Validate embedding dimension consistency
+      if (this.expectedDimension === null) {
+        this.expectedDimension = embedding.length;
+      } else if (embedding.length !== this.expectedDimension) {
+        throw new Error(
+          `Embedding dimension mismatch at index ${String(i)}: ` +
+          `expected ${String(this.expectedDimension)}, got ${String(embedding.length)}. ` +
+          `Did you change the embedding model between ingests?`,
+        );
+      }
+
+      // Skip duplicates by id
       if (!existingIds.has(entry.id)) {
         this.entries.push({
           ...entry,
@@ -84,7 +115,7 @@ export class MemoryVectorStore implements IVectorStore {
     topN: number,
     serviceFilter?: string
   ): Promise<LogEntry[]> {
-    // M2: guard against empty query embedding
+    // Guard against empty query embedding
     if (queryEmbedding.length === 0) {
       return [];
     }
@@ -98,7 +129,7 @@ export class MemoryVectorStore implements IVectorStore {
 
     scored.sort((a, b) => b.score - a.score);
 
-    // C5: explicit object construction via stripEmbedding, no `as` cast
+    // Explicit object construction via stripEmbedding, no `as` cast
     return scored.slice(0, topN).map(({ entry }) => stripEmbedding(entry));
   }
 
@@ -115,6 +146,7 @@ export class MemoryVectorStore implements IVectorStore {
 
     if (!(await file.exists())) {
       this.entries = [];
+      this.expectedDimension = null;
       return;
     }
 
@@ -128,13 +160,17 @@ export class MemoryVectorStore implements IVectorStore {
 
     if (!Array.isArray(parsed)) {
       this.entries = [];
+      this.expectedDimension = null;
       return;
     }
 
     const validEntries: VectorStoreEntry[] = [];
+    let dimension: number | null = null;
+
     for (const item of parsed) {
       if (!item || typeof item !== "object") {
         this.entries = [];
+        this.expectedDimension = null;
         return;
       }
       
@@ -142,20 +178,32 @@ export class MemoryVectorStore implements IVectorStore {
       const hasId = typeof obj.id === "string";
       const hasEmbedding = Array.isArray(obj.embedding) && obj.embedding.every(n => typeof n === "number");
       const hasTimestamp = obj.timestamp instanceof Date;
-      const hasLevel = typeof obj.level === "string";
+      const hasLevel = typeof obj.level === "string" && isValidLogLevel(obj.level);
       const hasMessage = typeof obj.message === "string";
       const hasRaw = typeof obj.raw === "string";
 
       if (!hasId || !hasEmbedding || !hasTimestamp || !hasLevel || !hasMessage || !hasRaw) {
         this.entries = [];
+        this.expectedDimension = null;
+        return;
+      }
+
+      const embeddingArr = obj.embedding as number[];
+
+      // Track dimension from persisted data
+      if (dimension === null) {
+        dimension = embeddingArr.length;
+      } else if (embeddingArr.length !== dimension) {
+        this.entries = [];
+        this.expectedDimension = null;
         return;
       }
 
       validEntries.push({
         id: obj.id as string,
-        embedding: obj.embedding as number[],
+        embedding: embeddingArr,
         timestamp: obj.timestamp as Date,
-        level: obj.level as "debug" | "info" | "warn" | "error" | "fatal",
+        level: obj.level as LogLevel,
         message: obj.message as string,
         raw: obj.raw as string,
         ...(typeof obj.service === "string" ? { service: obj.service } : {}),
@@ -164,9 +212,11 @@ export class MemoryVectorStore implements IVectorStore {
     }
 
     this.entries = validEntries;
+    this.expectedDimension = dimension;
   }
 
   async clear(): Promise<void> {
     this.entries = [];
+    this.expectedDimension = null;
   }
 }
