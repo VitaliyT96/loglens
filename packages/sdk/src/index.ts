@@ -1,4 +1,4 @@
-import { MemoryVectorStore, ingest, query } from "@loglens/core";
+import { MemoryVectorStore, ingest, query } from "@asklog/core";
 import type {
   Result,
   IngestOptions,
@@ -9,8 +9,8 @@ import type {
   QueryError,
   IngestProgress,
   QueryEvent,
-} from "@loglens/core";
-import { autoDetectParser } from "@loglens/parsers";
+} from "@asklog/core";
+import { autoDetectParser } from "@asklog/parsers";
 
 // ---------------------------------------------------------------------------
 // Re-export only what SDK consumers need — no wildcard re-exports
@@ -42,40 +42,40 @@ export type {
   ChatMessage,
   ChatRole,
   LlmError,
-} from "@loglens/core";
+} from "@asklog/core";
 
-export { ok, err, MemoryVectorStore } from "@loglens/core";
+export { ok, err, MemoryVectorStore } from "@asklog/core";
 
 // ---------------------------------------------------------------------------
 // SDK-specific types
 // ---------------------------------------------------------------------------
 
-export interface LoglensConfig {
+export interface AsklogConfig {
   readonly storageDir: string;
   readonly ollamaBaseUrl?: string;
   readonly embeddingModel?: string;
   readonly chatModel?: string;
 }
 
-export interface LoglensIngestOptions {
+export interface AsklogIngestOptions {
   readonly serviceFilter?: string;
   readonly onProgress?: (event: IngestProgress) => void;
 }
 
-export interface LoglensQueryOptions {
+export interface AsklogQueryOptions {
   readonly topN?: number;
   readonly serviceFilter?: string;
 }
 
 // ---------------------------------------------------------------------------
-// Loglens — high-level SDK class
+// Asklog — high-level SDK class
 // ---------------------------------------------------------------------------
 
-export class Loglens {
-  private readonly config: LoglensConfig;
+export class Asklog {
+  private readonly config: AsklogConfig;
   private readonly store: MemoryVectorStore;
 
-  constructor(config: LoglensConfig) {
+  constructor(config: AsklogConfig) {
     // Validate baseUrl eagerly so invalid config fails at construction, not mid-pipeline
     if (config.ollamaBaseUrl !== undefined) {
       try {
@@ -93,7 +93,7 @@ export class Loglens {
 
   async ingest(
     filePath: string,
-    options?: LoglensIngestOptions,
+    options?: AsklogIngestOptions,
   ): Promise<Result<IngestResult, IngestError>> {
     const ingestOpts: IngestOptions = {
       filePath,
@@ -115,7 +115,7 @@ export class Loglens {
 
   async query(
     question: string,
-    options?: LoglensQueryOptions,
+    options?: AsklogQueryOptions,
   ): Promise<Result<QueryResult, QueryError>> {
     const queryOpts: QueryOptions = {
       question,
@@ -137,7 +137,7 @@ export class Loglens {
 
   async queryStream(
     question: string,
-    options?: LoglensQueryOptions,
+    options?: AsklogQueryOptions,
     onEvent?: (event: QueryEvent) => void,
   ): Promise<Result<QueryResult, QueryError>> {
     const queryOpts: QueryOptions = {

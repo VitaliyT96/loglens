@@ -1,8 +1,8 @@
 import { defineCommand } from "citty";
 import type { ArgsDef } from "citty";
-import { ingest, MemoryVectorStore } from "@loglens/core";
-import type { IngestDeps, IngestProgress } from "@loglens/core";
-import { autoDetectParser } from "@loglens/parsers";
+import { ingest, MemoryVectorStore } from "@asklog/core";
+import type { IngestDeps, IngestProgress } from "@asklog/core";
+import { autoDetectParser } from "@asklog/parsers";
 import {
   logSuccess,
   logInfo,
@@ -25,7 +25,7 @@ export const ingestArgs = {
   "storage-dir": {
     type: "string" as const,
     description: "Directory for the vector index",
-    default: ".loglens",
+    default: ".asklog",
   },
   "base-url": {
     type: "string" as const,

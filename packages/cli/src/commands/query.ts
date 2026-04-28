@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import type { ArgsDef } from "citty";
-import { query, MemoryVectorStore } from "@loglens/core";
-import type { QueryDeps, QueryEvent } from "@loglens/core";
+import { query, MemoryVectorStore } from "@asklog/core";
+import type { QueryDeps, QueryEvent } from "@asklog/core";
 import {
   logSuccess,
   logInfo,
@@ -24,7 +24,7 @@ export const queryArgs = {
   "storage-dir": {
     type: "string" as const,
     description: "Directory for the vector index",
-    default: ".loglens",
+    default: ".asklog",
   },
   "base-url": {
     type: "string" as const,

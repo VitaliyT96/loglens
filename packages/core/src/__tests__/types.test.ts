@@ -116,7 +116,7 @@ describe("IngestOptions", () => {
   test("minimal required fields", () => {
     const opts: IngestOptions = {
       filePath: "/var/log/app.log",
-      storageDir: "/tmp/loglens-data",
+      storageDir: "/tmp/asklog-data",
     };
     expect(opts.ollamaBaseUrl).toBeUndefined();
     expect(opts.embeddingModel).toBeUndefined();
@@ -126,7 +126,7 @@ describe("IngestOptions", () => {
   test("all fields", () => {
     const opts: IngestOptions = {
       filePath: "/var/log/app.log",
-      storageDir: "/tmp/loglens-data",
+      storageDir: "/tmp/asklog-data",
       ollamaBaseUrl: "http://gpu-box:11434",
       embeddingModel: "mxbai-embed-large",
       serviceFilter: "api-gateway",
@@ -150,7 +150,7 @@ describe("QueryOptions", () => {
   test("minimal required fields", () => {
     const opts: QueryOptions = {
       question: "Why did the server crash?",
-      storageDir: "/tmp/loglens-data",
+      storageDir: "/tmp/asklog-data",
     };
     expect(opts.chatModel).toBeUndefined();
     expect(opts.topN).toBeUndefined();

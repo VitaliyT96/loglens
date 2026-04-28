@@ -37,16 +37,16 @@ export interface IngestProgress {
 }
 
 // ---------------------------------------------------------------------------
-// ParseOutput — shape expected from any parser (matches @loglens/parsers)
+// ParseOutput — shape expected from any parser (matches @asklog/parsers)
 // ---------------------------------------------------------------------------
 
-/** Minimal parser output contract. Mirrors ParseSuccess from @loglens/parsers. */
+/** Minimal parser output contract. Mirrors ParseSuccess from @asklog/parsers. */
 export interface ParseOutput {
   readonly entries: LogEntry[];
   readonly warnings?: readonly { line: number; reason: string }[];
 }
 
-/** Minimal parse error contract. Mirrors ParseError from @loglens/parsers. */
+/** Minimal parse error contract. Mirrors ParseError from @asklog/parsers. */
 export interface ParseFailure {
   readonly code: string;
   readonly path: string;
@@ -60,7 +60,7 @@ export interface ParseFailure {
 export interface IngestDeps {
   /**
    * Parse a file at the given path into log entries.
-   * Injected so core has no dependency on @loglens/parsers.
+   * Injected so core has no dependency on @asklog/parsers.
    */
   readonly parse: (
     filePath: string,

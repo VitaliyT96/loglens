@@ -1,5 +1,5 @@
 {
-  "name": "loglens",
+  "name": "asklog",
   "private": true,
   "workspaces": [
     "packages/core",

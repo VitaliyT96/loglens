@@ -1,5 +1,5 @@
 {
-  "name": "@loglens/sdk",
+  "name": "@asklog/sdk",
   "version": "0.0.0",
   "type": "module",
   "exports": {
@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@loglens/core": "workspace:*",
-    "@loglens/parsers": "workspace:*"
+    "@asklog/core": "workspace:*",
+    "@asklog/parsers": "workspace:*"
   }
 }

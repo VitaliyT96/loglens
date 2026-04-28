@@ -1,8 +1,8 @@
 import { parseJsonlFile } from "./jsonl.js";
 import { parsePlaintextFile } from "./plaintext.js";
 import type { ParseError, ParseSuccess } from "./types.js";
-import type { Result } from "@loglens/core";
-import { err } from "@loglens/core";
+import type { Result } from "@asklog/core";
+import { err } from "@asklog/core";
 import type { FileReadError } from "./types.js";
 
 export async function autoDetectParser(

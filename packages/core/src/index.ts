@@ -1,4 +1,4 @@
-// @loglens/core — ingest, embed, vector store, query engine
+// @asklog/core — ingest, embed, vector store, query engine
 export type {
   Ok,
   Err,

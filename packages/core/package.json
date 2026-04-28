@@ -1,5 +1,5 @@
 {
-  "name": "@loglens/core",
+  "name": "@asklog/core",
   "version": "0.0.0",
   "type": "module",
   "exports": {

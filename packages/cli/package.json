@@ -1,9 +1,9 @@
 {
-  "name": "@loglens/cli",
+  "name": "@asklog/cli",
   "version": "0.0.0",
   "type": "module",
   "bin": {
-    "loglens": "./src/index.ts"
+    "asklog": "./src/index.ts"
   },
   "exports": {
     ".": {
@@ -13,12 +13,12 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:binary": "bun build ./src/index.ts --compile --outfile loglens",
+    "build:binary": "bun build ./src/index.ts --compile --outfile asklog",
     "test": "bun test"
   },
   "dependencies": {
-    "@loglens/core": "workspace:*",
-    "@loglens/parsers": "workspace:*",
+    "@asklog/core": "workspace:*",
+    "@asklog/parsers": "workspace:*",
     "citty": "^0.1.6"
   }
 }
