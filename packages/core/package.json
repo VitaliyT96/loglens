@@ -1,14 +1,43 @@
 {
   "name": "@asklog/core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "types": "./src/index.ts"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
-  }
+  },
+  "description": "Local RAG CLI & SDK — ask questions about your logs in plain language",
+  "keywords": [
+    "logs",
+    "rag",
+    "llm",
+    "ollama",
+    "cli",
+    "observability",
+    "ai"
+  ],
+  "license": "MIT",
+  "author": "Vitaliy <vitalii.tiahin@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VitaliyT96/asklog"
+  },
+  "homepage": "https://github.com/VitaliyT96/asklog#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }

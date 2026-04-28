@@ -8,7 +8,7 @@ import queryCommand from "./commands/query.js";
 const main = defineCommand({
   meta: {
     name: "asklog",
-    version: "0.0.0",
+    version: "0.1.0",
     description:
       "Local-first log analysis with RAG — zero cloud, zero SaaS\n\n" +
       "Examples:\n" +
