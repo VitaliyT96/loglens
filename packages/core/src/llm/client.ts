@@ -8,6 +8,12 @@ import type { Result } from "../types.js";
 export interface LlmConfig {
   readonly baseUrl: string;
   readonly model: string;
+  /** Timeout in milliseconds for embedding requests. Default: 30_000 */
+  readonly embeddingTimeoutMs?: number;
+  /** Timeout in milliseconds for chat completion requests. Default: 120_000 */
+  readonly chatTimeoutMs?: number;
+  /** Maximum number of retry attempts for retryable errors (429, 5xx). Default: 3 */
+  readonly maxRetries?: number;
 }
 
 export type ChatRole = "system" | "user" | "assistant";
@@ -18,7 +24,7 @@ export interface ChatMessage {
 }
 
 export interface LlmError {
-  readonly code: "FETCH_FAILED" | "HTTP_ERROR" | "INVALID_RESPONSE" | "STREAM_ERROR";
+  readonly code: "FETCH_FAILED" | "HTTP_ERROR" | "INVALID_RESPONSE" | "STREAM_ERROR" | "TIMEOUT";
   readonly message: string;
 }
 
@@ -60,6 +66,16 @@ interface ErrorResponse {
     readonly message?: string;
   };
 }
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const DEFAULT_EMBED_TIMEOUT_MS = 30_000;
+const DEFAULT_CHAT_TIMEOUT_MS = 120_000;
+const DEFAULT_MAX_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 1_000;
+const RETRY_MAX_DELAY_MS = 10_000;
 
 // ---------------------------------------------------------------------------
 // Type Guards
@@ -124,6 +140,81 @@ async function getHttpErrorMessage(response: Response): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: normalize baseUrl
+// ---------------------------------------------------------------------------
+
+function buildUrl(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}${path}`;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: check if HTTP status is retryable
+// ---------------------------------------------------------------------------
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: create AbortSignal with timeout
+// ---------------------------------------------------------------------------
+
+function createTimeoutSignal(timeoutMs: number): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timer),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Helper: fetch with retry and timeout
+// ---------------------------------------------------------------------------
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  maxRetries: number,
+): Promise<Response> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const { signal, clear } = createTimeoutSignal(timeoutMs);
+    try {
+      const response = await globalThis.fetch(url, { ...init, signal });
+
+      // Don't retry non-retryable errors
+      if (!response.ok && isRetryableStatus(response.status) && attempt < maxRetries) {
+        const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+
+      return response;
+    } catch (cause: unknown) {
+      if (cause instanceof DOMException && cause.name === "AbortError") {
+        throw new Error(`Request timed out after ${String(timeoutMs)}ms`);
+      }
+
+      lastError = cause instanceof Error ? cause : new Error(String(cause));
+
+      // Retry on network errors (e.g. ECONNREFUSED during model load)
+      if (attempt < maxRetries) {
+        const delay = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+    } finally {
+      clear();
+    }
+  }
+
+  throw lastError ?? new Error("Max retries exceeded");
+}
+
+// ---------------------------------------------------------------------------
 // fetchEmbeddings API
 // ---------------------------------------------------------------------------
 
@@ -131,22 +222,33 @@ export async function fetchEmbeddings(
   texts: string[],
   config: LlmConfig,
 ): Promise<Result<number[][], LlmError>> {
-  const url = `${config.baseUrl.replace(/\/+$/, "")}/v1/embeddings`;
+  const url = buildUrl(config.baseUrl, "/v1/embeddings");
   const body: EmbeddingsRequest = {
     model: config.model,
     input: texts,
   };
 
+  const timeoutMs = config.embeddingTimeoutMs ?? DEFAULT_EMBED_TIMEOUT_MS;
+  const maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+
   let response: Response;
   try {
-    response = await globalThis.fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    response = await fetchWithRetry(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      timeoutMs,
+      maxRetries,
+    );
   } catch (cause: unknown) {
     const message =
       cause instanceof Error ? cause.message : "Unknown network error";
+    if (message.includes("timed out")) {
+      return err({ code: "TIMEOUT", message });
+    }
     return err({ code: "FETCH_FAILED", message });
   }
 
@@ -180,27 +282,45 @@ export async function fetchEmbeddings(
 // streamChat API
 // ---------------------------------------------------------------------------
 
+/**
+ * Stream chat completions from an OpenAI-compatible endpoint.
+ *
+ * **Error strategy:** This function throws on errors (not Result) because
+ * AsyncGenerator doesn't support Result return semantics for mid-stream
+ * failures. Callers should use try-catch (see query.ts for an example).
+ */
 export async function* streamChat(
   messages: ChatMessage[],
   config: LlmConfig,
 ): AsyncGenerator<string, void, unknown> {
-  const url = `${config.baseUrl.replace(/\/+$/, "")}/v1/chat/completions`;
+  const url = buildUrl(config.baseUrl, "/v1/chat/completions");
   const body: ChatRequest = {
     model: config.model,
     messages,
     stream: true,
   };
 
+  const timeoutMs = config.chatTimeoutMs ?? DEFAULT_CHAT_TIMEOUT_MS;
+  const maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES;
+
   let response: Response;
   try {
-    response = await globalThis.fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    response = await fetchWithRetry(
+      url,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      timeoutMs,
+      maxRetries,
+    );
   } catch (cause: unknown) {
     const message =
       cause instanceof Error ? cause.message : "Unknown network error";
+    if (message.includes("timed out")) {
+      throw new Error(`[TIMEOUT] ${message}`);
+    }
     throw new Error(`[FETCH_FAILED] ${message}`);
   }
 

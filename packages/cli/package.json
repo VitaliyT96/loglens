@@ -1,24 +1,54 @@
 {
-  "name": "@loglens/cli",
-  "version": "0.0.0",
+  "name": "@asklog/cli",
+  "version": "0.1.0",
   "type": "module",
   "bin": {
-    "loglens": "./src/index.ts"
+    "asklog": "./dist/index.js"
   },
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "types": "./src/index.ts"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build:binary": "bun build ./src/index.ts --compile --outfile loglens",
+    "build:binary": "bun build ./src/index.ts --compile --outfile asklog",
     "test": "bun test"
   },
   "dependencies": {
-    "@loglens/core": "workspace:*",
-    "@loglens/parsers": "workspace:*",
+    "@asklog/core": "workspace:*",
+    "@asklog/parsers": "workspace:*",
     "citty": "^0.1.6"
-  }
+  },
+  "description": "Local RAG CLI & SDK — ask questions about your logs in plain language",
+  "keywords": [
+    "logs",
+    "rag",
+    "llm",
+    "ollama",
+    "cli",
+    "observability",
+    "ai"
+  ],
+  "license": "MIT",
+  "author": "Vitaliy <vitalii.tiahin@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VitaliyT96/asklog"
+  },
+  "homepage": "https://github.com/VitaliyT96/asklog#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "asklog"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
 }

@@ -1,8 +1,8 @@
 import { defineCommand } from "citty";
 import type { ArgsDef } from "citty";
-import { ingest, MemoryVectorStore } from "@loglens/core";
-import type { IngestDeps, IngestProgress } from "@loglens/core";
-import { autoDetectParser } from "@loglens/parsers";
+import { ingest, MemoryVectorStore } from "@asklog/core";
+import type { IngestDeps, IngestProgress } from "@asklog/core";
+import { autoDetectParser } from "@asklog/parsers";
 import {
   logSuccess,
   logInfo,
@@ -25,7 +25,7 @@ export const ingestArgs = {
   "storage-dir": {
     type: "string" as const,
     description: "Directory for the vector index",
-    default: ".loglens",
+    default: ".asklog",
   },
   "base-url": {
     type: "string" as const,
@@ -82,6 +82,14 @@ export default defineCommand({
     const model = args.model;
     const service = args.service;
 
+    // Validate config eagerly — fail fast on bad URL
+    try {
+      new URL(baseUrl);
+    } catch {
+      logError(`Invalid --base-url: "${baseUrl}" — expected a valid URL like http://localhost:11434`);
+      process.exit(1);
+    }
+
     logInfo(`Ingesting ${bold(filePath)} → ${dim(storageDir)}`);
 
     const store = new MemoryVectorStore();
@@ -104,6 +112,11 @@ export default defineCommand({
 
     if (!result.ok) {
       if (
+        result.error.code === "PARSE_ERROR" &&
+        result.error.message.includes("ENOENT")
+      ) {
+        logError(`File not found: ${filePath} — check the path and try again.`);
+      } else if (
         result.error.code === "EMBED_ERROR" &&
         result.error.message.includes("ECONNREFUSED")
       ) {

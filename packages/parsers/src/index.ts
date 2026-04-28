@@ -1,4 +1,4 @@
-// @loglens/parsers — log format plugins (jsonl, plaintext, auto-detect)
+// @asklog/parsers — log format plugins (jsonl, plaintext, auto-detect)
 export type {
   FileReadError,
   LineParseWarning,

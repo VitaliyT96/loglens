@@ -1,5 +1,5 @@
-import { ok, err } from "@loglens/core";
-import type { LogEntry, LogLevel, Result } from "@loglens/core";
+import { ok, err } from "@asklog/core";
+import type { LogEntry, LogLevel, Result } from "@asklog/core";
 
 import type {
   FileReadError,

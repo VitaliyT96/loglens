@@ -63,9 +63,10 @@ function createEmbeddingFetch(): typeof globalThis.fetch {
 
 const BASE_OPTIONS: IngestOptions = {
   filePath: "/tmp/logs/app.jsonl",
-  storageDir: "/tmp/loglens-test-index",
+  storageDir: "/tmp/asklog-test-index",
   ollamaBaseUrl: "http://localhost:11434",
   embeddingModel: "nomic-embed-text",
+  maxRetries: 0,
 };
 
 // ---------------------------------------------------------------------------

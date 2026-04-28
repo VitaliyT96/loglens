@@ -2,7 +2,7 @@ import { expect, test, beforeAll, afterAll, spyOn, type Mock } from "bun:test";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { Loglens } from "../index.js";
+import { Asklog } from "../index.js";
 
 let tempDir: string;
 let logFilePath: string;
@@ -11,7 +11,7 @@ let fetchMock: Mock<typeof globalThis.fetch>;
 const ENTRY_COUNT = 20;
 
 beforeAll(() => {
-  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "loglens-e2e-"));
+  tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "asklog-e2e-"));
   logFilePath = path.join(tempDir, "test.jsonl");
 
   const lines: string[] = [];
@@ -100,8 +100,8 @@ afterAll(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("Loglens SDK E2E pipeline", async () => {
-  const sdk = new Loglens({
+test("Asklog SDK E2E pipeline", async () => {
+  const sdk = new Asklog({
     storageDir: tempDir,
     ollamaBaseUrl: "http://mock-llm.local",
     embeddingModel: "mock-embed",

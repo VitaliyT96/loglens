@@ -44,10 +44,11 @@ function fakeEmbedding(index: number): number[] {
 
 const BASE_OPTIONS: QueryOptions = {
   question: "What errors happened?",
-  storageDir: "/tmp/loglens-test-query",
+  storageDir: "/tmp/asklog-test-query",
   ollamaBaseUrl: "http://localhost:11434",
   chatModel: "llama3.2",
   topN: 10,
+  maxRetries: 0,
 };
 
 // ---------------------------------------------------------------------------

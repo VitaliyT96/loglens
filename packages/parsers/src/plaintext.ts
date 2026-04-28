@@ -1,5 +1,5 @@
-import { ok, err } from "@loglens/core";
-import type { LogEntry, LogLevel, Result } from "@loglens/core";
+import { ok, err } from "@asklog/core";
+import type { LogEntry, LogLevel, Result } from "@asklog/core";
 import type { ParseError, ParseSuccess, FileReadError } from "./types.js";
 
 const SYSLOG_REGEX = /^(\d{4}-\d{2}-\d{2}T\S+)\s+(DEBUG|INFO|WARN|WARNING|ERROR|FATAL|TRACE|CRITICAL|CRIT|ERR)\s+(?:\[(.*?)\]\s+)?(.*)$/i;

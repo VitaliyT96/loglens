@@ -13,9 +13,11 @@ describe("llm client", () => {
     fetchSpy.mockRestore();
   });
 
+  // Use maxRetries: 0 in tests to avoid retry delays unless testing retries
   const config: LlmConfig = {
     baseUrl: "http://localhost:1234",
     model: "test-model",
+    maxRetries: 0,
   };
 
   describe("fetchEmbeddings", () => {
@@ -237,6 +239,128 @@ describe("llm client", () => {
       }
       expect(err).toBeDefined();
       expect(err!.message).toContain("[INVALID_RESPONSE]");
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Retry behavior
+  // ---------------------------------------------------------------------------
+
+  describe("retry", () => {
+    test("fetchEmbeddings retries on 503 and succeeds", async () => {
+      let callCount = 0;
+      fetchSpy.mockImplementation(async () => {
+        callCount++;
+        if (callCount < 3) {
+          return new Response(
+            JSON.stringify({ error: { message: "Model loading" } }),
+            { status: 503 }
+          );
+        }
+        return new Response(
+          JSON.stringify({ data: [{ embedding: [0.1, 0.2] }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const retryConfig: LlmConfig = {
+        ...config,
+        maxRetries: 3,
+      };
+
+      const result = await fetchEmbeddings(["test"], retryConfig);
+      expect(result.ok).toBe(true);
+      expect(callCount).toBe(3); // 2 retries + 1 success
+    });
+
+    test("fetchEmbeddings does NOT retry on 404", async () => {
+      let callCount = 0;
+      fetchSpy.mockImplementation(async () => {
+        callCount++;
+        return new Response(
+          JSON.stringify({ error: { message: "Not Found" } }),
+          { status: 404 }
+        );
+      });
+
+      const retryConfig: LlmConfig = {
+        ...config,
+        maxRetries: 3,
+      };
+
+      const result = await fetchEmbeddings(["test"], retryConfig);
+      expect(result.ok).toBe(false);
+      expect(callCount).toBe(1); // No retries for 4xx (except 429)
+    });
+
+    test("fetchEmbeddings retries on 429", async () => {
+      let callCount = 0;
+      fetchSpy.mockImplementation(async () => {
+        callCount++;
+        if (callCount < 2) {
+          return new Response(
+            JSON.stringify({ error: { message: "Rate limited" } }),
+            { status: 429 }
+          );
+        }
+        return new Response(
+          JSON.stringify({ data: [{ embedding: [0.5] }] }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const retryConfig: LlmConfig = {
+        ...config,
+        maxRetries: 3,
+      };
+
+      const result = await fetchEmbeddings(["test"], retryConfig);
+      expect(result.ok).toBe(true);
+      expect(callCount).toBe(2);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // baseUrl normalization
+  // ---------------------------------------------------------------------------
+
+  describe("baseUrl normalization", () => {
+    test("trailing slash is stripped", async () => {
+      fetchSpy.mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({ data: [{ embedding: [0.1] }] }),
+          { status: 200 }
+        );
+      });
+
+      const trailingConfig: LlmConfig = {
+        baseUrl: "http://localhost:11434/",
+        model: "test",
+        maxRetries: 0,
+      };
+
+      await fetchEmbeddings(["hi"], trailingConfig);
+      const url = fetchSpy.mock.calls[0]![0] as string;
+      expect(url).toBe("http://localhost:11434/v1/embeddings");
+    });
+
+    test("multiple trailing slashes are stripped", async () => {
+      fetchSpy.mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({ data: [{ embedding: [0.1] }] }),
+          { status: 200 }
+        );
+      });
+
+      const trailingConfig: LlmConfig = {
+        baseUrl: "http://localhost:11434///",
+        model: "test",
+        maxRetries: 0,
+      };
+
+      await fetchEmbeddings(["hi"], trailingConfig);
+      const url = fetchSpy.mock.calls[0]![0] as string;
+      expect(url).toBe("http://localhost:11434/v1/embeddings");
     });
   });
 });

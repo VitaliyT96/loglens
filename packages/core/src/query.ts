@@ -122,6 +122,8 @@ export async function query(
   const embeddingConfig: LlmConfig = {
     baseUrl: embeddingBaseUrl,
     model: options.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
+    ...(options.embeddingTimeoutMs !== undefined ? { embeddingTimeoutMs: options.embeddingTimeoutMs } : {}),
+    ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
   };
 
   const embedResult = await fetchEmbeddings([options.question], embeddingConfig);
@@ -165,6 +167,8 @@ export async function query(
   const chatConfig: LlmConfig = {
     baseUrl: embeddingBaseUrl,
     model: chatModel,
+    ...(options.chatTimeoutMs !== undefined ? { chatTimeoutMs: options.chatTimeoutMs } : {}),
+    ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
   };
 
   const messages: ChatMessage[] = [

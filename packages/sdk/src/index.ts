@@ -1,53 +1,106 @@
-import { MemoryVectorStore, ingest, query } from "@loglens/core";
+import { MemoryVectorStore, ingest, query } from "@asklog/core";
 import type {
   Result,
+  IngestOptions,
   IngestResult,
+  QueryOptions,
   QueryResult,
   IngestError,
   QueryError,
   IngestProgress,
   QueryEvent,
-} from "@loglens/core";
-import { autoDetectParser } from "@loglens/parsers";
+} from "@asklog/core";
+import { autoDetectParser } from "@asklog/parsers";
 
-export * from "@loglens/core";
+// ---------------------------------------------------------------------------
+// Re-export only what SDK consumers need — no wildcard re-exports
+// ---------------------------------------------------------------------------
 
-export interface LoglensConfig {
-  storageDir: string;
-  ollamaBaseUrl?: string;
-  embeddingModel?: string;
-  chatModel?: string;
+export type {
+  Result,
+  Ok,
+  Err,
+  LogEntry,
+  LogLevel,
+  IngestResult,
+  IngestOptions,
+  QueryResult,
+  QueryOptions,
+  IngestError,
+  IngestParseError,
+  IngestEmbedError,
+  IngestStoreError,
+  QueryError,
+  QueryEmbedError,
+  QueryStoreError,
+  QueryChatError,
+  IngestProgress,
+  QueryEvent,
+  IVectorStore,
+  VectorStoreEntry,
+  LlmConfig,
+  ChatMessage,
+  ChatRole,
+  LlmError,
+} from "@asklog/core";
+
+export { ok, err, MemoryVectorStore } from "@asklog/core";
+
+// ---------------------------------------------------------------------------
+// SDK-specific types
+// ---------------------------------------------------------------------------
+
+export interface AsklogConfig {
+  readonly storageDir: string;
+  readonly ollamaBaseUrl?: string;
+  readonly embeddingModel?: string;
+  readonly chatModel?: string;
 }
 
-export interface LoglensIngestOptions {
-  serviceFilter?: string;
-  onProgress?: (event: IngestProgress) => void;
+export interface AsklogIngestOptions {
+  readonly serviceFilter?: string;
+  readonly onProgress?: (event: IngestProgress) => void;
 }
 
-export interface LoglensQueryOptions {
-  topN?: number;
-  serviceFilter?: string;
+export interface AsklogQueryOptions {
+  readonly topN?: number;
+  readonly serviceFilter?: string;
 }
 
-export class Loglens {
-  private config: LoglensConfig;
-  private store: MemoryVectorStore;
+// ---------------------------------------------------------------------------
+// Asklog — high-level SDK class
+// ---------------------------------------------------------------------------
 
-  constructor(config: LoglensConfig) {
+export class Asklog {
+  private readonly config: AsklogConfig;
+  private readonly store: MemoryVectorStore;
+
+  constructor(config: AsklogConfig) {
+    // Validate baseUrl eagerly so invalid config fails at construction, not mid-pipeline
+    if (config.ollamaBaseUrl !== undefined) {
+      try {
+        new URL(config.ollamaBaseUrl);
+      } catch {
+        throw new Error(
+          `Invalid ollamaBaseUrl: "${config.ollamaBaseUrl}" — expected a valid URL like http://localhost:11434`,
+        );
+      }
+    }
+
     this.config = config;
     this.store = new MemoryVectorStore();
   }
 
   async ingest(
     filePath: string,
-    options?: LoglensIngestOptions,
+    options?: AsklogIngestOptions,
   ): Promise<Result<IngestResult, IngestError>> {
-    const ingestOpts: LoglensIngestOptions & { filePath: string; storageDir: string; ollamaBaseUrl?: string; embeddingModel?: string } = {
+    const ingestOpts: IngestOptions = {
       filePath,
       storageDir: this.config.storageDir,
-      ...(this.config.ollamaBaseUrl !== undefined && { ollamaBaseUrl: this.config.ollamaBaseUrl }),
-      ...(this.config.embeddingModel !== undefined && { embeddingModel: this.config.embeddingModel }),
-      ...(options?.serviceFilter !== undefined && { serviceFilter: options.serviceFilter }),
+      ...(this.config.ollamaBaseUrl !== undefined ? { ollamaBaseUrl: this.config.ollamaBaseUrl } : {}),
+      ...(this.config.embeddingModel !== undefined ? { embeddingModel: this.config.embeddingModel } : {}),
+      ...(options?.serviceFilter !== undefined ? { serviceFilter: options.serviceFilter } : {}),
     };
 
     return ingest(
@@ -55,23 +108,23 @@ export class Loglens {
       {
         parse: autoDetectParser,
         store: this.store,
-        ...(options?.onProgress && { onProgress: options.onProgress }),
+        ...(options?.onProgress !== undefined ? { onProgress: options.onProgress } : {}),
       },
     );
   }
 
   async query(
     question: string,
-    options?: LoglensQueryOptions,
+    options?: AsklogQueryOptions,
   ): Promise<Result<QueryResult, QueryError>> {
-    const queryOpts: LoglensQueryOptions & { question: string; storageDir: string; ollamaBaseUrl?: string; embeddingModel?: string; chatModel?: string } = {
+    const queryOpts: QueryOptions = {
       question,
       storageDir: this.config.storageDir,
-      ...(this.config.ollamaBaseUrl !== undefined && { ollamaBaseUrl: this.config.ollamaBaseUrl }),
-      ...(this.config.embeddingModel !== undefined && { embeddingModel: this.config.embeddingModel }),
-      ...(this.config.chatModel !== undefined && { chatModel: this.config.chatModel }),
-      ...(options?.topN !== undefined && { topN: options.topN }),
-      ...(options?.serviceFilter !== undefined && { serviceFilter: options.serviceFilter }),
+      ...(this.config.ollamaBaseUrl !== undefined ? { ollamaBaseUrl: this.config.ollamaBaseUrl } : {}),
+      ...(this.config.embeddingModel !== undefined ? { embeddingModel: this.config.embeddingModel } : {}),
+      ...(this.config.chatModel !== undefined ? { chatModel: this.config.chatModel } : {}),
+      ...(options?.topN !== undefined ? { topN: options.topN } : {}),
+      ...(options?.serviceFilter !== undefined ? { serviceFilter: options.serviceFilter } : {}),
     };
 
     return query(
@@ -84,24 +137,24 @@ export class Loglens {
 
   async queryStream(
     question: string,
-    options?: LoglensQueryOptions,
+    options?: AsklogQueryOptions,
     onEvent?: (event: QueryEvent) => void,
   ): Promise<Result<QueryResult, QueryError>> {
-    const queryOpts: LoglensQueryOptions & { question: string; storageDir: string; ollamaBaseUrl?: string; embeddingModel?: string; chatModel?: string } = {
+    const queryOpts: QueryOptions = {
       question,
       storageDir: this.config.storageDir,
-      ...(this.config.ollamaBaseUrl !== undefined && { ollamaBaseUrl: this.config.ollamaBaseUrl }),
-      ...(this.config.embeddingModel !== undefined && { embeddingModel: this.config.embeddingModel }),
-      ...(this.config.chatModel !== undefined && { chatModel: this.config.chatModel }),
-      ...(options?.topN !== undefined && { topN: options.topN }),
-      ...(options?.serviceFilter !== undefined && { serviceFilter: options.serviceFilter }),
+      ...(this.config.ollamaBaseUrl !== undefined ? { ollamaBaseUrl: this.config.ollamaBaseUrl } : {}),
+      ...(this.config.embeddingModel !== undefined ? { embeddingModel: this.config.embeddingModel } : {}),
+      ...(this.config.chatModel !== undefined ? { chatModel: this.config.chatModel } : {}),
+      ...(options?.topN !== undefined ? { topN: options.topN } : {}),
+      ...(options?.serviceFilter !== undefined ? { serviceFilter: options.serviceFilter } : {}),
     };
 
     return query(
       queryOpts,
       {
         store: this.store,
-        ...(onEvent && { onEvent }),
+        ...(onEvent !== undefined ? { onEvent } : {}),
       },
     );
   }

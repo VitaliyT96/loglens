@@ -37,16 +37,16 @@ export interface IngestProgress {
 }
 
 // ---------------------------------------------------------------------------
-// ParseOutput — shape expected from any parser (matches @loglens/parsers)
+// ParseOutput — shape expected from any parser (matches @asklog/parsers)
 // ---------------------------------------------------------------------------
 
-/** Minimal parser output contract. Mirrors ParseSuccess from @loglens/parsers. */
+/** Minimal parser output contract. Mirrors ParseSuccess from @asklog/parsers. */
 export interface ParseOutput {
   readonly entries: LogEntry[];
   readonly warnings?: readonly { line: number; reason: string }[];
 }
 
-/** Minimal parse error contract. Mirrors ParseError from @loglens/parsers. */
+/** Minimal parse error contract. Mirrors ParseError from @asklog/parsers. */
 export interface ParseFailure {
   readonly code: string;
   readonly path: string;
@@ -60,7 +60,7 @@ export interface ParseFailure {
 export interface IngestDeps {
   /**
    * Parse a file at the given path into log entries.
-   * Injected so core has no dependency on @loglens/parsers.
+   * Injected so core has no dependency on @asklog/parsers.
    */
   readonly parse: (
     filePath: string,
@@ -131,6 +131,8 @@ export async function ingest(
   const llmConfig: LlmConfig = {
     baseUrl: options.ollamaBaseUrl ?? DEFAULT_BASE_URL,
     model: options.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
+    ...(options.embeddingTimeoutMs !== undefined ? { embeddingTimeoutMs: options.embeddingTimeoutMs } : {}),
+    ...(options.maxRetries !== undefined ? { maxRetries: options.maxRetries } : {}),
   };
 
   const totalBatches = Math.ceil(entries.length / BATCH_SIZE);
@@ -176,7 +178,16 @@ export async function ingest(
   }
 
   const countBefore = allEmbeddings.length;
-  await store.add(entries, allEmbeddings);
+
+  try {
+    await store.add(entries, allEmbeddings);
+  } catch (cause: unknown) {
+    const message = cause instanceof Error ? cause.message : "Unknown store error";
+    return err({
+      code: "STORE_ERROR",
+      message: `Failed to add entries to index: ${message}`,
+    });
+  }
 
   onProgress?.({ phase: "saving", current: 1, total: 2 });
 

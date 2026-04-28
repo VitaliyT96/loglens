@@ -16,7 +16,7 @@ describe("ingest command args", () => {
 
   test("applies default storage-dir", () => {
     const parsed = parseArgs(["logs/app.jsonl"], ingestArgs);
-    expect(parsed["storage-dir"]).toBe(".loglens");
+    expect(parsed["storage-dir"]).toBe(".asklog");
   });
 
   test("overrides storage-dir with --storage-dir flag", () => {
@@ -97,7 +97,7 @@ describe("query command args", () => {
 
   test("applies all default values", () => {
     const parsed = parseArgs(["what happened?"], queryArgs);
-    expect(parsed["storage-dir"]).toBe(".loglens");
+    expect(parsed["storage-dir"]).toBe(".asklog");
     expect(parsed["base-url"]).toBe("http://localhost:11434");
     expect(parsed["chat-model"]).toBe("llama3.2");
     expect(parsed["embedding-model"]).toBe("nomic-embed-text");

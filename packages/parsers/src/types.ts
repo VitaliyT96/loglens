@@ -1,4 +1,4 @@
-import type { LogEntry } from "@loglens/core";
+import type { LogEntry } from "@asklog/core";
 
 /** The file could not be read from the filesystem. */
 export interface FileReadError {
